@@ -1,0 +1,497 @@
+<!doctype html>
+<html>
+    <head>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
+
+
+        <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.3.2/cytoscape.min.js"></script>
+
+        <!--    <script src="https://unpkg.com/popper.js"></script>-->
+        <script src="cytoscape-popper.js"></script>
+        <script src="https://unpkg.com/tippy.js@2.0.9/dist/tippy.all.js"></script>
+        <link rel="stylesheet" href="https://unpkg.com/tippy.js@2.0.9/dist/tippy.css" />
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.5.2/randomColor.min.js"></script>
+
+        <style>
+            #cy {
+                width: 670px;
+                height: 670px;
+                display: block;
+                border: 1px solid #dfdfdf;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row justify-content-start">
+                <div class="col-sm-8">
+                    <div id="cy"></div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="row">
+                        <div class="card">
+                            <h5 class="card-header">Graphics</h5>
+                            <div id="graphics-controls" class="card-body"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="card">
+                            <h5 class="card-header">Filters</h5>
+                            <div id="filters-controls" class="card-body"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>  
+            function parse_region_string(value) {
+                var chrom_pos = value.split(':');
+                var chrom = chrom_pos[0];
+                var start = null;
+                var stop = null;
+                if (chrom_pos.length > 1) {
+                    var start_stop = chrom_pos[1].split('-');
+                    start = parseInt(start_stop[0]);
+                    if (start_stop.length > 1) {
+                        stop = parseInt(start_stop[1]);
+                    }
+                }
+                return { 'chrom': chrom, 'start': start, 'stop': stop };
+            }
+            
+            function create_graphics_controls(cy) {
+                var form = $('<form>').appendTo($('#graphics-controls'));
+                var container = null;
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-check');
+                $('<input id="chbx-node-labels" type="checkbox">')
+                    .appendTo(container)
+                    .addClass('form-check-input')
+                    .change(function () {
+                        if (this.checked) {
+                            if (document.getElementById("chbx-node-weights").checked) {
+                                document.getElementById("chbx-node-weights").checked = false;
+                                cy.nodes().removeClass('label-weight');
+                            }
+                            cy.nodes().addClass('label-name');
+                        } else {
+                            cy.nodes().removeClass('label-name');
+                        }
+                    });
+                $('<label>Display phenotype names</label>').addClass('form-check-label').appendTo(container);
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-check');
+                $('<input id="chbx-node-weights" type="checkbox">')
+                    .appendTo(container)
+                    .addClass('form-check-input')
+                    .change(function() {
+                        if (this.checked) {
+                            if (document.getElementById("chbx-node-labels").checked) {
+                                document.getElementById("chbx-node-labels").checked = false;
+                                cy.nodes().removeClass('label-name');
+                            }
+                            cy.nodes().addClass('label-weight');
+                        } else {
+                            cy.nodes().removeClass('label-weight');
+                        }
+                    });
+                $('<label>Display number of significant peaks</label>').addClass('form-check-label').appendTo(container);
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-check');
+                $('<input type="checkbox">')
+                    .appendTo(container)
+                    .addClass("form-check-input")
+                    .change(function() {
+                        if (this.checked) {
+                            cy.nodes().addClass('weighted');
+                        } else {
+                            cy.nodes().removeClass('weighted');
+                        }      
+                    });
+                $('<label>Node size proportional to the number of significant peaks</label>').addClass('form-check-label').appendTo(container);
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-check');
+                $('<input type="checkbox">')
+                    .appendTo(container)
+                    .addClass('form-check-input')
+                    .change(function() {
+                        if (this.checked) {
+                            cy.edges().addClass('label');
+                        } else {
+                            cy.edges().removeClass('label');
+                        }      
+                    });
+                $('<label>Display number of overlapping loci</label>').addClass('form-check-label').appendTo(container);
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-check');
+                $('<input type="checkbox">')
+                    .appendTo(container)
+                    .addClass('form-check-input')
+                    .change(function() {
+                        if (this.checked) {
+                            cy.edges().addClass('weighted');
+                        } else {
+                            cy.edges().removeClass('weighted');
+                        }      
+                    });
+                $('<label>Edge size proportional to the number of overlapping loci</label>').addClass('form-check-label').appendTo(container);
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-check');
+                $('<input type="checkbox" checked>')
+                    .appendTo(container)
+                    .addClass('form-check-input')
+                    .change(function() {
+                        if (this.checked) {
+                            cy.nodes().addClass('colored');
+                        } else {
+                            cy.nodes().removeClass('colored');
+                        }
+                    });
+                $('<label>Color phenotypes by parent PheCode</label>').addClass('form-check-label').appendTo(container);
+
+                container = $('<div>').appendTo(form);
+                container.addClass('form-group');
+                $('<label>Layout: </label>').appendTo(container);
+                $('<select>')
+                    .appendTo(container)
+                    .addClass('form-control form-control-sm')
+                    .change(function() {
+                        cy.layout({ name: this.value, fit: true }).run(); // layout deosn't look good after updating. too zoomed in, too large nodes
+                    })
+                    .append('<option value="random">Random</option>')
+                    .append('<option value="grid">Grid</option>')
+                    .append('<option value="circle">Circle</option>')
+                    .append('<option value="concentric">Concentric</option>')
+                    .append('<option value="breadthfirst">Breadthfirst</option>')
+                    .append('<option value="cose" selected>Cose</option>');
+            }
+
+            function create_filters_controls(cy, removed_graph_data) {
+                var form = $('<div>').appendTo($('#filters-controls'));
+                var container = null;
+                
+                container = $('<div>').appendTo(form);
+                container.addClass('form-group');
+                $('<label>Select phenotype: </label>').appendTo(container);
+                var pheno_select = $('<select id="phenotype-select">')
+                    .appendTo(container)
+                    .addClass('form-control form-control-sm')
+                    .append('<option value="None">None</option>');
+                
+                var phenotypes = [];
+                cy.nodes().forEach(function(node) {
+                    phenotypes.push(node.attr("name") + ': ' + node.attr('phecode') + ' ');
+                });
+                phenotypes.sort();
+                for (var i = 0; i < phenotypes.length; ++i) {
+                    pheno_select.append('<option value="' + phenotypes[i] + '">' + phenotypes[i] + '</option>');
+                }
+                
+                container = $('<div>').appendTo(form);
+                container.addClass('form-group');
+                $('<label>Select region:</label>').appendTo(container);
+                $('<input id="region-include" type="text"placeholder="e.g. 6:28510120-33480577">')
+                    .appendTo(container)
+                    .addClass('form-control');
+                
+                $('<button>Filter</button>')
+                    .appendTo(form)
+                    .addClass("btn btn-primary mb-2")
+                    .on('click', function() {
+                        cy.$(':selected').unselect();  
+                        while (removed_graph_data.length > 0) {
+                            removed_graph_data.pop().restore();
+                        }
+                        var phenotype_selected = document.getElementById('phenotype-select').value;
+                        if (phenotype_selected != 'None') {
+                            var name = phenotype_selected.split(':')[0];
+                            cy.nodes('[name = "' + name + '"]').select();
+                            cy.nodes('[name = "' + name + '"]').neighborhood().select();
+                            removed_graph_data.push(cy.$(':unselected').remove());
+                            cy.$(':selected').unselect();  
+                        }
+                        var region_string_value = document.getElementById('region-include').value;
+                        if (region_string_value) {
+                            region = parse_region_string(region_string_value);
+                            var selected_edges = cy.edges().filter(function(edge, index, edges) {
+                                var loci = edge.data('loci');
+                                for (var i = 0; i < loci.length; ++i) {
+                                    if ((region.chrom == loci[i].c) & (region.start <= loci[i].e) & (region.stop >= loci[i].b)) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            });
+                            var connected_nodes = selected_edges.connectedNodes();
+                            selected_edges.select();
+                            connected_nodes.select();
+                            removed_graph_data.push(cy.$(':unselected').remove());
+                            cy.$(':selected').unselect();  
+                        }
+                        cy.center();
+                    }); 
+            }
+            
+            fetch('graph-data.json').then(function(res) {
+                return res.json() 
+            }).then(function(graph_data) {
+                var colors = randomColor({count: 2000});
+                
+                var removed_graph_data = [];
+
+                var cy = cytoscape({
+                    container: document.getElementById("cy"),
+                    elements: graph_data,
+                    style: [ // the stylesheet for the graph
+                        {
+                            selector: 'node',
+                            style: {
+                                'background-color': '#666',
+                                'border-width': 1,
+                                'label': '',
+                                'width': 30,
+                                'height': 30
+                            }
+                        },
+                        {
+                            selector: 'node.weighted',
+                            style: {
+                                'width': 'mapData(weight, 0, 20, 30, 60)',
+                                'height': 'mapData(weight, 0, 20, 30, 60)'
+                            }
+                        },
+                        {
+                            selector: 'node.label-name',
+                            style: {
+                                'label': 'data(name)'
+                            }
+                        },
+                        {
+                            selector: 'node.label-weight',
+                            style: {
+                                'label': 'data(weight)'
+                            }
+                        },
+                        {
+                            selector: 'node.colored',
+                            style: {
+                                'background-color': function(e) {
+                                    parent_phecode = parseInt(e.data('phecode').split('.')[0]);
+                                    return colors[parent_phecode];
+                                }
+                            }
+                        },
+                        {
+                            selector: 'node.selected',
+                            style: {
+                                'border-width': 8
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'width': 3,
+                                'line-color': '#ccc',
+                                'label': '',
+                                'curve-style': 'bezier' 
+                            }
+                        },
+                        {
+                            selector: 'edge.weighted',
+                            style: {
+                                'width': 'mapData(weight, 1, 20, 3, 20)',
+                            }
+                        },
+                        {
+                            selector: 'edge.label',
+                            style: {
+                                'label': 'data(weight)'
+                            }
+                        },
+                        {
+                            selector: 'edge.selected',
+                            style: {
+                                'line-color': 'black',
+                                'color': 'white',
+                                'text-background-color': 'black',
+                                'text-background-opacity': 1
+                            }
+                        }
+                    ],
+
+                    layout: {
+                        name: 'cose',
+                        fit: true
+                    }
+                });
+
+                cy.nodes().addClass('colored');
+
+                var node_tooltips = {};
+                cy.nodes().forEach(function(node) {
+                    var tooltip = tippy(node.popperRef(), {
+                        html: (function(){
+                            var div = document.createElement('div');
+                            div.innerHTML = '(' + node.attr('phecode') + ') ' + node.attr('name');
+                            return div;
+                        })(),
+                        trigger: 'manual',
+                        arrow: true,
+                        placement: 'top',
+                        multiline: true,
+                        sticky: true
+                    }).tooltips[0];
+                    node_tooltips[node.id()] = tooltip;
+                });
+
+                var node_menus = {};
+                cy.nodes().forEach(function(node) {
+                    var menu = tippy(node.popperRef(), {
+                        html: (function(){
+                            var div = document.createElement('div');
+                            div.innerHTML = '(' + node.attr('phecode') + ') ' + node.attr('name');
+                            div.innerHTML += '</br>' + node.attr('weight') + ' peak(s) with a P-value&lt;10<sup>-8</sup>';
+                            div.innerHTML += '</br>View in <a target="_blank" href="http://pheweb.sph.umich.edu:5003/pheno/' + parseFloat(node.attr('phecode')) + '">Manhattan plot</a>';
+                            return div;
+                        })(),
+                        trigger: 'manual',
+                        arrow: true,
+                        hideOnClick: false,
+                        placement: 'top',
+                        multiline: true,
+                        sticky: true,
+                        interactive: true
+                    }).tooltips[0];
+                    node_menus[node.id()] = menu;
+                });
+
+                var edge_menus = {};
+                cy.edges().forEach(function(edge) {
+                    var menu = tippy(edge.popperRef(), {
+                        html: (function(){
+                            var node1 = edge.source();
+                            var node2 = edge.target();
+                            var phecodes = [node1.data('phecode'), node2.data('phecode')];
+                            var phenames = [node1.data('name'), node2.data('name')];
+
+                            var div = document.createElement('div');
+
+                            var table = null;
+                            var caption = null;
+                            var tr = null;
+                            var td = null;
+
+                            table = document.createElement('table');
+                            table.style.width = "300px";
+                            caption = document.createElement('caption');
+                            caption.style.captionSide = 'top';
+                            caption.innerHTML = edge.data('weight') + ' overlapping loci(us) between';
+                            table.appendChild(caption);
+                            for (var i = 0; i < 2; ++i) {
+                                tr = document.createElement('tr');
+                                td = document.createElement('td');
+                                td.style.textAlign = 'left';
+                                td.style.verticalAlign = 'top';
+                                td.innerHTML = phecodes[i];
+                                tr.appendChild(td);
+                                td = document.createElement('td');
+                                td.style.paddingLeft = "5px";
+                                td.style.textAlign = 'left';
+                                td.style.verticalAlign = 'top';
+                                td.innerHTML = phenames[i];
+                                tr.appendChild(td);
+                                table.appendChild(tr);
+                            }
+                            div.appendChild(table);
+
+                            table = document.createElement('table');
+                            table.style.width = "300px";
+                            caption = document.createElement('caption');
+                            caption.style.captionSide = 'top';
+                            caption.innerHTML = 'View overlapping loci(us) in LocusZoom';
+                            table.appendChild(caption);
+                            var loci = edge.data('loci');
+                            var n_loci = loci.length;
+                            for (var i = 0; i < n_loci; ++i) {
+                                locus = loci[i].c + ':' + loci[i].b + '-' + loci[i].e;
+                                tr = document.createElement('tr');
+                                td = document.createElement('td');
+                                td.style.textAlign = 'left';
+                                td.innerHTML = locus;
+                                tr.appendChild(td);
+                                for (var j = 0; j < 2; ++j) {
+                                    td = document.createElement('td');
+                                    td.innerHTML = '<a target="_blank" href="http://pheweb.sph.umich.edu:5003/region/' + parseFloat(phecodes[j]) + '/' + locus + '">' + phecodes[j] + '</a>'
+                                    tr.appendChild(td);
+                                }
+                                table.appendChild(tr);
+                            }
+                            div.appendChild(table);
+
+                            return div;
+                        })(),
+                        trigger: 'manual',
+                        arrow: true,
+                        hideOnClick: false,
+                        placement: 'top',
+                        multiline: true,
+                        sticky: true,
+                        interactive: true
+                    }).tooltips[0];
+                    edge_menus[edge.id()] = menu;
+                });
+
+                // on node hover
+                cy.on('mouseover', 'node', function(event) {
+                    var node = event.target;
+                    node_tooltips[node.id()].show();
+                });
+
+                cy.on('mouseout', 'node', function(event) {
+                    var node = event.target;
+                    node_tooltips[node.id()].hide();
+                });
+
+                // on node click
+                cy.on('click',  'node', function(event) {
+                    var node = event.target;
+                    if (node.hasClass('selected')) {
+                        node.removeClass('selected');
+                        node_menus[node.id()].hide();
+                    } else {
+                        node.addClass('selected');
+                        node_menus[node.id()].show();
+                    }
+                });
+
+                // on edge click
+                cy.on('click', 'edge', function(event) {
+                    var edge = event.target;
+                    if (edge.hasClass('selected')) {
+                        edge.removeClass('selected');
+                        edge_menus[edge.id()].hide();
+                    } else {
+                        edge.addClass('selected');
+                        edge_menus[edge.id()].show();
+                    }
+                });
+
+                create_graphics_controls(cy);
+                create_filters_controls(cy, removed_graph_data); 
+            });
+        </script>
+    </body>
+</html>
